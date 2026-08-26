@@ -81,7 +81,7 @@ if (isset($conn)) {
         <div class="error"><?php echo $error; ?></div>
     <?php endif; ?>
 
-    <form action="login.php" method="POST">
+    <form action="index.php" method="POST">
         <div class="form-group">
             <label for="email">Email Address</label>
             <input type="email" id="email" name="email" required>
