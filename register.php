@@ -27,30 +27,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if (!$length_ok || !$upper_ok || !$lower_ok || !$number_ok || !$symbol_ok) {
                 $error = "User must enter at least 8 characters include Uppercase, Lowercase, Number & Symbol.";
             } else {
-                // Check if email already exists
+                // Check if email already exists using SQLite syntax
                 $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
-                $stmt->bind_param("s", $email);
-                $stmt->execute();
-                $stmt->store_result();
+                if ($stmt) {
+                    $stmt->bindValue(1, $email, SQLITE3_TEXT);
+                    $result = $stmt->execute();
+                    $existing_user = $result ? $result->fetchArray(SQLITE3_ASSOC) : null;
 
-                if ($stmt->num_rows > 0) {
-                    $error = "Email is already registered!";
-                } else {
-                    $stmt->close();
-
-                    // Hash password securely
-                    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-
-                    // Insert new user into database
-                    $insert_stmt = $conn->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
-                    $insert_stmt->bind_param("sss", $username, $email, $hashed_password);
-
-                    if ($insert_stmt->execute()) {
-                        $success = "Registration successful! You can now <a href='login.php'>Login</a>.";
+                    if ($existing_user) {
+                        $error = "Email is already registered!";
+                        $stmt->close();
                     } else {
-                        $error = "Something went wrong. Please try again.";
+                        $stmt->close();
+
+                        // Hash password securely
+                        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+
+                        // Insert new user into database using SQLite syntax
+                        $insert_stmt = $conn->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
+                        if ($insert_stmt) {
+                            $insert_stmt->bindValue(1, $username, SQLITE3_TEXT);
+                            $insert_stmt->bindValue(2, $email, SQLITE3_TEXT);
+                            $insert_stmt->bindValue(3, $hashed_password, SQLITE3_TEXT);
+
+                            if ($insert_stmt->execute()) {
+                                $success = "Registration successful! You can now <a href='index.php'>Login</a>.";
+                            } else {
+                                $error = "Something went wrong. Please try again.";
+                            }
+                            $insert_stmt->close();
+                        }
                     }
-                    $insert_stmt->close();
                 }
             }
         }
@@ -58,7 +65,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $error = "Please fill in all fields.";
     }
 }
-$conn->close();
+if (isset($conn)) {
+    $conn->close();
+}
 ?>
 
 <!DOCTYPE html>
@@ -83,13 +92,14 @@ $conn->close();
 </head>
 <body>
 
-<!-- Bahagian Logo & Slogan -->
-<div style="text-align;">
-    <!-- Imej Logo -->
-    <img src="image/QR SHIELD TEXT.png" alt="QR Shield Logo" style="height: 200px; margin-bottom: 8px;">
+<div class="register-container">
+    <!-- App Logo -->
+    <div class="login-logo">
+        <div style="text-align: center; margin-bottom: 25px;">
+        <img src="image/QR SHIELD TEXT.png" alt="QR Shield Logo" style="height: 200px; margin-bottom: 8px;">
+    </div>
 </div>
 
-<div class="register-container">
     <h2>Create Account</h2>
     
     <?php if (!empty($error)): ?>
@@ -128,7 +138,7 @@ $conn->close();
     </form>
     
     <div class="link">
-        Already have an account? <a href="login.php">Login here</a>
+        Already have an account? <a href="index.php">Login here</a>
     </div>
 </div>
 

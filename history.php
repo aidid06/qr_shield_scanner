@@ -13,11 +13,23 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
-// Fetch scan history for the logged-in user, ordered by latest first
+// Fetch scan history for the logged-in user using SQLite syntax
 $stmt = $conn->prepare("SELECT scanned_url, scan_status, scanned_at FROM scan_history WHERE user_id = ? ORDER BY scanned_at DESC");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$result = $stmt->get_result();
+$has_rows = false;
+$rows = [];
+
+if ($stmt) {
+    $stmt->bindValue(1, $user_id, SQLITE3_INTEGER);
+    $result = $stmt->execute();
+    
+    if ($result) {
+        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $rows[] = $row;
+        }
+    }
+    $stmt->close();
+}
+$has_rows = count($rows) > 0;
 ?>
 
 <!DOCTYPE html>
@@ -65,7 +77,7 @@ $result = $stmt->get_result();
     <h2>Your Scan History</h2>
     <p>Review all previous QR codes and links analyzed through VirusTotal.</p>
 
-    <?php if ($result->num_rows > 0): ?>
+    <?php if ($has_rows): ?>
         <table>
             <thead>
                 <tr>
@@ -75,7 +87,7 @@ $result = $stmt->get_result();
                 </tr>
             </thead>
             <tbody>
-                <?php while ($row = $result->fetch_assoc()): ?>
+                <?php foreach ($rows as $row): ?>
                     <tr>
                         <td><?php echo $row['scanned_at']; ?></td>
                         <td class="url-cell"><?php echo htmlspecialchars($row['scanned_url']); ?></td>
@@ -85,7 +97,7 @@ $result = $stmt->get_result();
                             </span>
                         </td>
                     </tr>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </tbody>
         </table>
     <?php else: ?>
@@ -98,6 +110,7 @@ $result = $stmt->get_result();
 </html>
 
 <?php
-$stmt->close();
-$conn->close();
+if (isset($conn)) {
+    $conn->close();
+}
 ?>

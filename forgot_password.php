@@ -26,28 +26,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if (!$length_ok || !$upper_ok || !$lower_ok || !$number_ok || !$symbol_ok) {
                 $error = "Password must be at least 8 characters include Uppercase, Lowercase, Number & Symbol.";
             } else {
-                // Semak sama ada emel wujud di dalam database
+                // Semak sama ada emel wujud di dalam database menggunakan SQLite syntax
                 $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
-                $stmt->bind_param("s", $email);
-                $stmt->execute();
-                $stmt->store_result();
+                if ($stmt) {
+                    $stmt->bindValue(1, $email, SQLITE3_TEXT);
+                    $result = $stmt->execute();
+                    $user = $result ? $result->fetchArray(SQLITE3_ASSOC) : null;
 
-                if ($stmt->num_rows > 0) {
-                    $stmt->close();
+                    if ($user) {
+                        // Kemaskini dengan password baru yang di-hash
+                        $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+                        $update_stmt = $conn->prepare("UPDATE users SET password = ? WHERE email = ?");
+                        
+                        if ($update_stmt) {
+                            $update_stmt->bindValue(1, $hashed_password, SQLITE3_TEXT);
+                            $update_stmt->bindValue(2, $email, SQLITE3_TEXT);
 
-                    // Kemaskini dengan password baru yang di-hash
-                    $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-                    $update_stmt = $conn->prepare("UPDATE users SET password = ? WHERE email = ?");
-                    $update_stmt->bind_param("ss", $hashed_password, $email);
-
-                    if ($update_stmt->execute()) {
-                        $success = "Password successfully reset! You can now <a href='login.php'>Login</a>.";
+                            if ($update_stmt->execute()) {
+                                $success = "Password successfully reset! You can now <a href='login.php'>Login</a>.";
+                            } else {
+                                $error = "Something went wrong. Please try again.";
+                            }
+                        }
                     } else {
-                        $error = "Something went wrong. Please try again.";
+                        $error = "Email address not found in our system!";
                     }
-                    $update_stmt->close();
-                } else {
-                    $error = "Email address not found in our system!";
                 }
             }
         }
@@ -55,7 +58,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $error = "Please fill in all fields.";
     }
 }
-$conn->close();
+if (isset($conn)) { $conn->close(); }
 ?>
 
 <!DOCTYPE html>
@@ -81,6 +84,13 @@ $conn->close();
 <body>
 
 <div class="reset-container">
+    <!-- App Logo -->
+    <div class="login-logo">
+        <div style="text-align: center; margin-bottom: 25px;">
+            <img src="image/QR SHIELD TEXT.png" alt="QR Shield Logo" style="height: 200px; margin-bottom: 8px;">
+        </div>
+    </div>
+
     <h2>Reset Password</h2>
     
     <?php if (!empty($error)): ?>

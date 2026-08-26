@@ -12,26 +12,25 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
+
+// Check admin status using SQLite prepared statement
 $check_admin = $conn->prepare("SELECT role FROM users WHERE id = ?");
-$check_admin->bind_param("i", $user_id);
-$check_admin->execute();
-$res = $check_admin->get_result();
-$user_data = $res->fetch_assoc();
+$check_admin->bindValue(1, $user_id, SQLITE3_INTEGER);
+$res = $check_admin->execute();
+$user_data = $res ? $res->fetchArray(SQLITE3_ASSOC) : null;
 
 if (!$user_data || $user_data['role'] !== 'admin') {
     header("Location: dashboard.php");
     exit();
 }
-$check_admin->close();
 
 // Handle User Deletion if requested
 if (isset($_GET['delete_user'])) {
     $del_id = intval($_GET['delete_user']);
     if ($del_id !== $user_id) {
         $del_stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
-        $del_stmt->bind_param("i", $del_id);
+        $del_stmt->bindValue(1, $del_id, SQLITE3_INTEGER);
         $del_stmt->execute();
-        $del_stmt->close();
     }
     header("Location: admin.php");
     exit();
@@ -42,12 +41,12 @@ $users_result = $conn->query("SELECT id, username, email, role, created_at FROM 
 
 // Fetch global scan metrics & logs
 $total_scans_res = $conn->query("SELECT COUNT(*) as count FROM scan_history");
-$total_scans = $total_scans_res->fetch_assoc()['count'];
+$total_scans = $total_scans_res ? $total_scans_res->fetch_assoc()['count'] : 0;
 
 $malicious_scans_res = $conn->query("SELECT COUNT(*) as count FROM scan_history WHERE scan_status = 'Malicious'");
-$malicious_scans = $malicious_scans_res->fetch_assoc()['count'];
+$malicious_scans = $malicious_scans_res ? $malicious_scans_res->fetch_assoc()['count'] : 0;
 
-// Fetch recent scans without selections
+// Fetch recent scans with user mapping
 $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_history JOIN users ON scan_history.user_id = users.id ORDER BY scanned_at DESC LIMIT 10");
 ?>
 
@@ -126,7 +125,7 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
             </tr>
         </thead>
         <tbody>
-            <?php while ($user = $users_result->fetch_assoc()): ?>
+            <?php while ($users_result && ($user = $users_result->fetch_assoc())): ?>
                 <tr>
                     <td><?php echo $user['id']; ?></td>
                     <td><?php echo htmlspecialchars($user['username']); ?></td>
@@ -145,7 +144,7 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
         </tbody>
     </table>
 
-    <!-- Recent Global Scan Logs (Detections column removed) -->
+    <!-- Recent Global Scan Logs -->
     <h3>Recent Platform Scans (Live Stream)</h3>
     <table>
         <thead>
@@ -157,7 +156,7 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
             </tr>
         </thead>
         <tbody>
-            <?php while ($log = $all_history->fetch_assoc()): ?>
+            <?php while ($all_history && ($log = $all_history->fetch_assoc())): ?>
                 <tr>
                     <td><?php echo htmlspecialchars($log['username']); ?></td>
                     <td class="url-cell"><?php echo htmlspecialchars($log['scanned_url']); ?></td>

@@ -22,7 +22,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['url'])) {
 
     // 1. Submit URL to VirusTotal API v3 for analysis
     $vt_url = 'https://www.virustotal.com/api/v3/urls';
-    $api_key = '5ad5512fff2367ba837854a93509cc9d4c23b4c0d208f221d785aa682c41eee3'; // <-- GANTIKAN DENGAN API KEY ANDA
+    $api_key = '5ad5512fff2367ba837854a93509cc9d4c23b4c0d208f221d785aa682c41eee3'; // <-- API Key
 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $vt_url);
@@ -80,11 +80,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['url'])) {
                     $scan_status = "Safe";
                 }
 
-                // 2. Save Scan History into MySQL Database
+                // 2. Save Scan History into SQLite Database using SQLite3 bindValue syntax
                 $hist_stmt = $conn->prepare("INSERT INTO scan_history (user_id, scanned_url, scan_status, malicious_count, total_engines) VALUES (?, ?, ?, ?, ?)");
-                $hist_stmt->bind_param("issii", $user_id, $scanned_url, $scan_status, $malicious_count, $total_engines);
-                $hist_stmt->execute();
-                $hist_stmt->close();
+                
+                if ($hist_stmt) {
+                    $hist_stmt->bindValue(1, $user_id, SQLITE3_INTEGER);
+                    $hist_stmt->bindValue(2, $scanned_url, SQLITE3_TEXT);
+                    $hist_stmt->bindValue(3, $scan_status, SQLITE3_TEXT);
+                    $hist_stmt->bindValue(4, $malicious_count, SQLITE3_INTEGER);
+                    $hist_stmt->bindValue(5, $total_engines, SQLITE3_INTEGER);
+                    $hist_stmt->execute();
+                }
             }
         }
     } else {

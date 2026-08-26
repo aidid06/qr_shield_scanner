@@ -12,32 +12,35 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = $_POST['password'];
 
     if (!empty($email) && !empty($password)) {
+        // Fetch user using SQLite prepared statement syntax
         $stmt = $conn->prepare("SELECT id, username, password FROM users WHERE email = ?");
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
+        if ($stmt) {
+            $stmt->bindValue(1, $email, SQLITE3_TEXT);
+            $result = $stmt->execute();
+            $row = $result ? $result->fetchArray(SQLITE3_ASSOC) : null;
 
-        if ($result->num_rows == 1) {
-            $row = $result->fetch_assoc();
-            
-            if (password_verify($password, $row['password'])) {
-                $_SESSION['user_id'] = $row['id'];
-                $_SESSION['username'] = $row['username'];
+            if ($row) {
+                if (password_verify($password, $row['password'])) {
+                    $_SESSION['user_id'] = $row['id'];
+                    $_SESSION['username'] = $row['username'];
 
-                header("Location: dashboard.php");
-                exit();
+                    header("Location: dashboard.php");
+                    exit();
+                } else {
+                    $error = "Invalid email or password!";
+                }
             } else {
                 $error = "Invalid email or password!";
             }
-        } else {
-            $error = "Invalid email or password!";
+            $stmt->close();
         }
-        $stmt->close();
     } else {
         $error = "Please fill in all fields.";
     }
 }
-$conn->close();
+if (isset($conn)) {
+    $conn->close();
+}
 ?>
 
 <!DOCTYPE html>
@@ -65,13 +68,13 @@ $conn->close();
 <body>
 
 <div class="login-container">
-
     <!-- App Logo -->
     <div class="login-logo">
-        <img src="image/QR SHIELD TEXT.png" alt="QR Shield Logo">
+        <div style="text-align: center; margin-bottom: 25px;">
+        <img src="image/QR SHIELD TEXT.png" alt="QR Shield Logo" style="height: 200px; margin-bottom: 8px;">
     </div>
+</div>
 
-<div class="login-container">
     <h2>User Login</h2>
     
     <?php if (!empty($error)): ?>

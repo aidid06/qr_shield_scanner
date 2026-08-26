@@ -13,11 +13,11 @@ if (!isset($_SESSION['user_id'])) {
 
 <!DOCTYPE html>
 <html lang="en">
-    <link rel="stylesheet" href="style.css">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - QR Shield Scanner</title>
+    <link rel="stylesheet" href="style.css">
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 0; }
         header { background-color: #333; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
@@ -41,24 +41,25 @@ if (!isset($_SESSION['user_id'])) {
     <h1>QR Shield Scanner</h1>
     <div class="nav-links">
         <?php
-        // Check if the logged-in user is an admin to show the Admin Panel link
+        // Check if the logged-in user is an admin to show the Admin Panel link using SQLite syntax
         require_once 'db.php';
         $uid = $_SESSION['user_id'];
         $chk_admin = $conn->prepare("SELECT role FROM users WHERE id = ?");
-        $chk_admin->bind_param("i", $uid);
-        $chk_admin->execute();
-        $res_admin = $chk_admin->get_result()->fetch_assoc();
-        if ($res_admin && $res_admin['role'] === 'admin') {
-            echo '<a href="admin.php" style="color: #ffc107; font-weight: bold;">Admin Panel</a>';
+        if ($chk_admin) {
+            $chk_admin->bindValue(1, $uid, SQLITE3_INTEGER);
+            $res_admin = $chk_admin->execute();
+            $user_data = $res_admin ? $res_admin->fetchArray(SQLITE3_ASSOC) : null;
+            if ($user_data && $user_data['role'] === 'admin') {
+                echo '<a href="admin.php" style="color: #ffc107; font-weight: bold; margin-right: 15px;">Admin Panel</a>';
+            }
         }
-        $chk_admin->close();
         ?>
         <a href="logout.php" style="color: #ff6b6b;">Logout</a>
     </div>
 </header>
 
 <div class="container">
-    <h2>Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?>! 👋</h2>
+    <h2>Welcome, <?php echo htmlspecialchars($_SESSION['username'] ?? 'User'); ?>! 👋</h2>
     <p>You are successfully logged into your dashboard. From here, you can scan QR codes for malware and review past analyses.</p>
 
     <div class="card-grid">
@@ -77,3 +78,4 @@ if (!isset($_SESSION['user_id'])) {
 
 </body>
 </html>
+<?php if (isset($conn)) { $conn->close(); } ?>
