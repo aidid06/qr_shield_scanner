@@ -42,16 +42,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                         // Hash password securely
                         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                        $verify_token = bin2hex(random_bytes(32));
 
                         // Insert new user into database using SQLite syntax
-                        $insert_stmt = $conn->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
+                        $insert_stmt = $conn->prepare("INSERT INTO users (username, email, password, verified, verify_token) VALUES (?, ?, ?, 0, ?)");
                         if ($insert_stmt) {
                             $insert_stmt->bindValue(1, $username, SQLITE3_TEXT);
                             $insert_stmt->bindValue(2, $email, SQLITE3_TEXT);
                             $insert_stmt->bindValue(3, $hashed_password, SQLITE3_TEXT);
+                            $insert_stmt->bindValue(4, $verify_token, SQLITE3_TEXT);
 
                             if ($insert_stmt->execute()) {
-                                $success = "Registration successful! You can now <a href='index.php'>Login</a>.";
+                                $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                                $host = $_SERVER['HTTP_HOST'];
+                                $verify_link = "$scheme://$host/verify.php?token=" . $verify_token;
+
+                                $subject = "Verify your QR Shield Scanner account";
+                                $body = "Hi $username,\n\nPlease verify your email by clicking the link below:\n$verify_link\n\nIf you didn't sign up, you can ignore this email.";
+                                $headers = "From: no-reply@" . $host . "\r\n";
+
+                                @mail($email, $subject, $body, $headers);
+
+                                $success = "Registration successful! Please check your email (" . htmlspecialchars($email) . ") for a verification link before logging in.";
                             } else {
                                 $error = "Something went wrong. Please try again.";
                             }
@@ -123,7 +135,9 @@ if (isset($conn)) {
             <label for="password">Password</label>
             <div class="password-wrapper">
                 <input type="password" id="password" name="password" required>
-                <span class="toggle-password" onclick="togglePassword('password', this)">👁️</span>
+                <span class="toggle-password"
+                    onmousedown="showPassword('password', this)" onmouseup="hidePassword('password', this)" onmouseleave="hidePassword('password', this)"
+                    ontouchstart="showPassword('password', this)" ontouchend="hidePassword('password', this)">👁️</span>
             </div>
             <div class="password-hint">Min 8 chars (A-Z, a-z, 0-9, symbol)</div>
         </div>
@@ -131,7 +145,9 @@ if (isset($conn)) {
             <label for="confirm_password">Confirm Password</label>
             <div class="password-wrapper">
                 <input type="password" id="confirm_password" name="confirm_password" required>
-                <span class="toggle-password" onclick="togglePassword('confirm_password', this)">👁️</span>
+                <span class="toggle-password"
+                    onmousedown="showPassword('confirm_password', this)" onmouseup="hidePassword('confirm_password', this)" onmouseleave="hidePassword('confirm_password', this)"
+                    ontouchstart="showPassword('confirm_password', this)" ontouchend="hidePassword('confirm_password', this)">👁️</span>
             </div>
         </div>
         <button type="submit">Register</button>
@@ -143,15 +159,16 @@ if (isset($conn)) {
 </div>
 
 <script>
-function togglePassword(fieldId, icon) {
+function showPassword(fieldId, icon) {
     const passwordField = document.getElementById(fieldId);
-    if (passwordField.type === "password") {
-        passwordField.type = "text";
-        icon.textContent = "🙈";
-    } else {
-        passwordField.type = "password";
-        icon.textContent = "👁️";
-    }
+    passwordField.type = "text";
+    icon.textContent = "🙈";
+}
+
+function hidePassword(fieldId, icon) {
+    const passwordField = document.getElementById(fieldId);
+    passwordField.type = "password";
+    icon.textContent = "👁️";
 }
 </script>
 

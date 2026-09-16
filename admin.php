@@ -24,18 +24,6 @@ if (!$user_data || $user_data['role'] !== 'admin') {
     exit();
 }
 
-// Handle User Deletion if requested
-if (isset($_GET['delete_user'])) {
-    $del_id = intval($_GET['delete_user']);
-    if ($del_id !== $user_id) {
-        $del_stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
-        $del_stmt->bindValue(1, $del_id, SQLITE3_INTEGER);
-        $del_stmt->execute();
-    }
-    header("Location: admin.php");
-    exit();
-}
-
 // Fetch all registered users
 $users_result = $conn->query("SELECT id, username, email, role, created_at FROM users ORDER BY created_at DESC");
 
@@ -80,8 +68,6 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
         .Safe { background-color: #10b981; }
         .Suspicious { background-color: #f59e0b; color: #fff; }
         .Malicious { background-color: #ef4444; }
-        .btn-danger { background-color: #ef4444; color: white; padding: 6px 12px; text-decoration: none; border-radius: 6px; font-size: 0.8rem; font-weight: 600; display: inline-block; transition: background 0.2s; }
-        .btn-danger:hover { background-color: #dc2626; }
         .url-cell { word-break: break-all; max-width: 300px; color: var(--primary); }
     </style>
 </head>
@@ -121,7 +107,6 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
                 <th>Email</th>
                 <th>Role</th>
                 <th>Joined At</th>
-                <th>Action</th>
             </tr>
         </thead>
         <tbody>
@@ -132,13 +117,6 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
                     <td><?php echo htmlspecialchars($user['email']); ?></td>
                     <td><strong><?php echo ucfirst($user['role']); ?></strong></td>
                     <td><?php echo $user['created_at']; ?></td>
-                    <td>
-                        <?php if ($user['role'] !== 'admin'): ?>
-                            <a href="admin.php?delete_user=<?php echo $user['id']; ?>" class="btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">Delete</a>
-                        <?php else: ?>
-                            <span style="color: var(--text-muted); font-size: 0.85rem;">Protected</span>
-                        <?php endif; ?>
-                    </td>
                 </tr>
             <?php endwhile; ?>
         </tbody>

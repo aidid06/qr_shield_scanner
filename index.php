@@ -13,7 +13,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (!empty($email) && !empty($password)) {
         // Fetch user using SQLite prepared statement syntax
-        $stmt = $conn->prepare("SELECT id, username, password FROM users WHERE email = ?");
+        $stmt = $conn->prepare("SELECT id, username, password, verified FROM users WHERE email = ?");
         if ($stmt) {
             $stmt->bindValue(1, $email, SQLITE3_TEXT);
             $result = $stmt->execute();
@@ -21,11 +21,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             if ($row) {
                 if (password_verify($password, $row['password'])) {
-                    $_SESSION['user_id'] = $row['id'];
-                    $_SESSION['username'] = $row['username'];
+                    if (empty($row['verified'])) {
+                        $error = "Please verify your email before logging in. Check your inbox for the verification link, or <a href='resend_verification.php?email=" . urlencode($email) . "'>resend it</a>.";
+                    } else {
+                        $_SESSION['user_id'] = $row['id'];
+                        $_SESSION['username'] = $row['username'];
 
-                    header("Location: dashboard.php");
-                    exit();
+                        header("Location: dashboard.php");
+                        exit();
+                    }
                 } else {
                     $error = "Invalid email or password!";
                 }
@@ -90,7 +94,9 @@ if (isset($conn)) {
             <label for="password">Password</label>
             <div class="password-wrapper">
                 <input type="password" id="password" name="password" required>
-                <span class="toggle-password" onclick="togglePassword('password', this)">👁️</span>
+                <span class="toggle-password" id="togglePassword"
+                    onmousedown="showPassword('password', this)" onmouseup="hidePassword('password', this)" onmouseleave="hidePassword('password', this)"
+                    ontouchstart="showPassword('password', this)" ontouchend="hidePassword('password', this)">👁️</span>
             </div>
         </div>
         
@@ -107,15 +113,16 @@ if (isset($conn)) {
 </div>
 
 <script>
-function togglePassword(fieldId, icon) {
+function showPassword(fieldId, icon) {
     const passwordField = document.getElementById(fieldId);
-    if (passwordField.type === "password") {
-        passwordField.type = "text";
-        icon.textContent = "🙈";
-    } else {
-        passwordField.type = "password";
-        icon.textContent = "👁️";
-    }
+    passwordField.type = "text";
+    icon.textContent = "🙈";
+}
+
+function hidePassword(fieldId, icon) {
+    const passwordField = document.getElementById(fieldId);
+    passwordField.type = "password";
+    icon.textContent = "👁️";
 }
 </script>
 

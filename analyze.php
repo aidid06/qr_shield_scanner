@@ -22,7 +22,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['url'])) {
 
     // 1. Submit URL to VirusTotal API v3 for analysis
     $vt_url = 'https://www.virustotal.com/api/v3/urls';
-    $api_key = '5ad5512fff2367ba837854a93509cc9d4c23b4c0d208f221d785aa682c41eee3'; // <-- API Key
+    $api_key = getenv('VT_API_KEY'); // <-- set this in your hosting environment, do not hardcode
 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $vt_url);
@@ -128,6 +128,39 @@ $conn->close();
         .btn-secondary { background: #64748b; }
         .btn-secondary:hover { background: #475569; }
         .url-box { word-break: break-all; color: var(--primary); font-weight: 500; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 5px; margin-bottom: 20px; }
+
+        /* Auto-open notice for Safe links */
+        .auto-open-notice { margin-top: 15px; font-size: 0.85rem; color: var(--text-muted); }
+
+        /* Confirmation dialog for Suspicious/Malicious links */
+        .confirm-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.6);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .confirm-overlay.active { display: flex; }
+        .confirm-box {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: var(--shadow);
+            text-align: center;
+        }
+        .confirm-box h3 { margin-top: 0; color: #ef4444; }
+        .confirm-box p { color: var(--text-main); font-size: 0.9rem; }
+        .confirm-box .url-box { text-align: left; font-size: 0.85rem; }
+        .confirm-btn-group { display: flex; gap: 12px; margin-top: 20px; }
+        .confirm-btn-group button, .confirm-btn-group a { flex: 1; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; border: none; cursor: pointer; text-decoration: none; text-align: center; }
+        .btn-cancel { background: #e2e8f0; color: var(--text-main); }
+        .btn-cancel:hover { background: #cbd5e1; }
+        .btn-open-anyway { background: #ef4444; color: white; }
+        .btn-open-anyway:hover { background: #dc2626; }
     </style>
 </head>
 <body>
@@ -150,11 +183,53 @@ $conn->close();
         <span class="badge <?php echo $scan_status; ?>"><?php echo $scan_status; ?></span>
     </p>
 
+    <?php if ($scan_status === "Safe"): ?>
+        <p class="auto-open-notice" id="autoOpenNotice">This link looks safe. Opening it automatically in a new tab in <span id="countdown">3</span>...</p>
+    <?php elseif ($scan_status === "Suspicious" || $scan_status === "Malicious"): ?>
+        <p class="auto-open-notice" style="color: #ef4444; font-weight: 600;">This link was NOT opened automatically because it may be unsafe.</p>
+    <?php endif; ?>
+
     <div class="btn-group">
         <a href="scanner.php" class="btn-back">Scan Another QR</a>
         <a href="history.php" class="btn-back btn-secondary">View History</a>
     </div>
 </div>
+
+<!-- Confirmation dialog, shown only for Suspicious / Malicious -->
+<div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-box">
+        <h3>⚠️ Warning: Risky Link Detected</h3>
+        <p>Our scan flagged this URL as <strong><?php echo htmlspecialchars($scan_status); ?></strong>
+            (<?php echo (int)$malicious_count; ?> out of <?php echo (int)$total_engines; ?> engines flagged it).
+            Opening it could expose you to phishing, malware, or other threats.</p>
+        <div class="url-box"><?php echo htmlspecialchars($scanned_url); ?></div>
+        <p>Are you sure you want to continue?</p>
+        <div class="confirm-btn-group">
+            <button class="btn-cancel" onclick="document.getElementById('confirmOverlay').classList.remove('active');">Cancel</button>
+            <a href="<?php echo htmlspecialchars($scanned_url); ?>" target="_blank" rel="noopener noreferrer" class="btn-open-anyway">Open Anyway</a>
+        </div>
+    </div>
+</div>
+
+<script>
+const scanStatus = <?php echo json_encode($scan_status); ?>;
+const scannedUrl = <?php echo json_encode($scanned_url); ?>;
+
+if (scanStatus === "Safe" && scannedUrl) {
+    let secondsLeft = 3;
+    const countdownEl = document.getElementById('countdown');
+    const timer = setInterval(() => {
+        secondsLeft--;
+        if (countdownEl) countdownEl.textContent = secondsLeft;
+        if (secondsLeft <= 0) {
+            clearInterval(timer);
+            window.open(scannedUrl, '_blank', 'noopener,noreferrer');
+        }
+    }, 1000);
+} else if ((scanStatus === "Suspicious" || scanStatus === "Malicious") && scannedUrl) {
+    document.getElementById('confirmOverlay').classList.add('active');
+}
+</script>
 
 </body>
 </html>
