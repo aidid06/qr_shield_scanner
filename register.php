@@ -3,6 +3,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 require_once 'db.php';
+require_once 'email_helper.php';
 
 $error = "";
 $success = "";
@@ -53,17 +54,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             $insert_stmt->bindValue(4, $verify_token, SQLITE3_TEXT);
 
                             if ($insert_stmt->execute()) {
-                                $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
                                 $host = $_SERVER['HTTP_HOST'];
-                                $verify_link = "$scheme://$host/verify.php?token=" . $verify_token;
+                                $sent = send_verification_email($username, $email, $verify_token, $host);
 
-                                $subject = "Verify your QR Shield Scanner account";
-                                $body = "Hi $username,\n\nPlease verify your email by clicking the link below:\n$verify_link\n\nIf you didn't sign up, you can ignore this email.";
-                                $headers = "From: no-reply@" . $host . "\r\n";
-
-                                @mail($email, $subject, $body, $headers);
-
-                                $success = "Registration successful! Please check your email (" . htmlspecialchars($email) . ") for a verification link before logging in.";
+                                if ($sent) {
+                                    $success = "Registration successful! Please check your email (" . htmlspecialchars($email) . ") for a verification link before logging in.";
+                                } else {
+                                    $success = "Registration successful! However, we couldn't send the verification email right now. You can request a new one from the login page (\"resend it\" link), or try again shortly.";
+                                }
                             } else {
                                 $error = "Something went wrong. Please try again.";
                             }
