@@ -1,7 +1,6 @@
 <?php
 // Shared bottom navigation bar with a floating scan button (FAB).
-// Include it just before </body> on any page for logged-in users:
-//     <?php include 'bottom_nav.php'; ?>
+// Include this file just before the closing body tag on any page for logged-in users.
 $current_page = basename($_SERVER['SCRIPT_NAME']);
 $nav_home    = ($current_page === 'dashboard.php');
 $nav_history = ($current_page === 'history.php');

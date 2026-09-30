@@ -1,6 +1,6 @@
 <?php
 error_reporting(E_ALL);
-ini_set('display_errors', 0);
+ini_set('display_errors', 1);
 
 require_once 'db.php';
 require_once 'email_helper.php';
@@ -57,10 +57,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 $host = $_SERVER['HTTP_HOST'];
                                 $sent = send_verification_email($username, $email, $verify_token, $host);
 
+                                $resend_link = "resend_verification.php?email=" . urlencode($email);
+
                                 if ($sent) {
-                                    $success = "Registration successful! Please check your email (" . htmlspecialchars($email) . ") for a verification link before logging in.";
+                                    $success = "Registration successful! Please check your email (" . htmlspecialchars($email) . ") for a verification link before logging in. Didn't get it? <a href='" . htmlspecialchars($resend_link) . "'>Resend the email</a>.";
                                 } else {
-                                    $success = "Registration successful! However, we couldn't send the verification email right now. You can request a new one from the login page (\"resend it\" link), or try again shortly.";
+                                    $success = "Registration successful! However, we couldn't send the verification email right now. <a href='" . htmlspecialchars($resend_link) . "'>Click here to try sending it again</a>.";
                                 }
                             } else {
                                 $error = "Something went wrong. Please try again.";
