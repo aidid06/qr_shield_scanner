@@ -7,9 +7,11 @@ require_once 'email_helper.php';
 
 $error = "";
 $success = "";
+$submitted_email = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = trim($_POST['email']);
+    $submitted_email = $email;
 
     if (empty($email)) {
         $error = "Please enter your email address.";
@@ -64,6 +66,7 @@ if (isset($conn)) { $conn->close(); }
         .link a:hover { text-decoration: underline; }
         .resend-line { font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 16px 0; }
         .resend-line a { color: var(--primary); font-weight: 600; text-decoration: underline; }
+        .link-btn { background: none; border: none; padding: 0; margin: 0; font: inherit; color: var(--primary); font-weight: 600; text-decoration: underline; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -83,7 +86,14 @@ if (isset($conn)) { $conn->close(); }
     <?php endif; ?>
 
     <?php if (!empty($success)): ?>
-        <div class="success"><?php echo htmlspecialchars($success); ?></div>
+        <div class="success">
+            <?php echo htmlspecialchars($success); ?>
+            Didn't get it?
+            <form action="forgot_password.php" method="POST" style="display: inline;">
+                <input type="hidden" name="email" value="<?php echo htmlspecialchars($submitted_email); ?>">
+                <button type="submit" class="link-btn">Resend it</button>
+            </form>
+        </div>
     <?php endif; ?>
 
     <?php if (empty($success)): ?>
