@@ -1,6 +1,6 @@
 <?php
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
 
 session_start();
 require_once 'db.php';
@@ -105,6 +105,8 @@ $has_rows = count($rows) > 0;
     <?php endif; ?>
 
 </div>
+
+<?php include 'bottom_nav.php'; ?>
 
 </body>
 </html>

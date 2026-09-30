@@ -1,6 +1,6 @@
 <?php
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
 
 session_start();
 
@@ -108,6 +108,11 @@ if (!isset($_SESSION['user_id'])) {
         .btn-dupe-cancel:hover { background: #cbd5e1; }
         .btn-dupe-continue { background: #f59e0b; color: white; }
         .btn-dupe-continue:hover { background: #d97706; }
+        .dupe-checkbox { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 16px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; user-select: none; }
+        .dupe-checkbox input { width: auto; margin: 0; cursor: pointer; }
+        .dupe-pref-note { display: none; margin-top: 15px; font-size: 0.8rem; color: var(--text-muted); text-align: center; }
+        .dupe-pref-note a { color: var(--primary); cursor: pointer; font-weight: 600; text-decoration: none; }
+        .dupe-pref-note a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -145,6 +150,10 @@ if (!isset($_SESSION['user_id'])) {
         </div>
     </div>
 
+    <div class="dupe-pref-note" id="dupe-pref-note">
+        Duplicate-scan warnings are turned off. <a onclick="enableDupeWarning()">Turn back on</a>
+    </div>
+
     <!-- Scan Result & VT Submission Section -->
     <div id="result-section" class="result-section">
         <h3>Extracted URL / Text:</h3>
@@ -172,6 +181,10 @@ if (!isset($_SESSION['user_id'])) {
         <h3>⚠️ Already Scanned</h3>
         <p>You've already scanned this exact QR code in this session:</p>
         <div class="url-display" id="dupe-url-display"></div>
+        <label class="dupe-checkbox">
+            <input type="checkbox" id="dupe-never-show">
+            Don't show this warning again
+        </label>
         <div class="dupe-btn-group">
             <button class="btn-dupe-cancel" onclick="closeDupePopup()">Cancel</button>
             <button class="btn-dupe-continue" onclick="proceedAfterDupe()">Scan Anyway</button>
@@ -217,21 +230,46 @@ function showResult(decodedText) {
     document.getElementById('url-input').value = decodedText;
 }
 
-function onScanSuccess(decodedText, decodedResult) {
-    // Stop camera after successful scan to save resource
-    if (html5QrCode && html5QrCode.isScanning) {
-        html5QrCode.stop().catch(err => console.log(err));
-    }
+// "Don't show again" preference (kept in this browser, survives across sessions)
+const DUPE_PREF_KEY = 'qrShieldHideDuplicateWarning';
 
-    if (getScannedSet().has(decodedText)) {
+function isDupeWarningDisabled() {
+    try {
+        return localStorage.getItem(DUPE_PREF_KEY) === '1';
+    } catch (e) {
+        return false; // storage unavailable, so always show the warning
+    }
+}
+
+function updateDupePrefNote() {
+    document.getElementById('dupe-pref-note').style.display = isDupeWarningDisabled() ? 'block' : 'none';
+}
+
+function enableDupeWarning() {
+    try { localStorage.removeItem(DUPE_PREF_KEY); } catch (e) {}
+    updateDupePrefNote();
+}
+
+// Shared by camera scans and image uploads
+function handleDecodedText(decodedText) {
+    if (getScannedSet().has(decodedText) && !isDupeWarningDisabled()) {
         pendingDecodedText = decodedText;
         document.getElementById('dupe-url-display').textContent = decodedText;
+        document.getElementById('dupe-never-show').checked = false;
         document.getElementById('dupeOverlay').classList.add('active');
         return;
     }
 
     rememberScannedCode(decodedText);
     showResult(decodedText);
+}
+
+function onScanSuccess(decodedText, decodedResult) {
+    // Stop camera after successful scan to save resource
+    if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().catch(err => console.log(err));
+    }
+    handleDecodedText(decodedText);
 }
 
 function closeDupePopup() {
@@ -242,6 +280,12 @@ function closeDupePopup() {
 }
 
 function proceedAfterDupe() {
+    // Only remember the choice when the user actually continues
+    if (document.getElementById('dupe-never-show').checked) {
+        try { localStorage.setItem(DUPE_PREF_KEY, '1'); } catch (e) {}
+        updateDupePrefNote();
+    }
+
     document.getElementById('dupeOverlay').classList.remove('active');
     if (pendingDecodedText) {
         rememberScannedCode(pendingDecodedText);
@@ -284,14 +328,7 @@ function decodeQRFromFile(input) {
         
         html5QrCodeFile.scanFile(file, true)
             .then(decodedText => {
-                if (getScannedSet().has(decodedText)) {
-                    pendingDecodedText = decodedText;
-                    document.getElementById('dupe-url-display').textContent = decodedText;
-                    document.getElementById('dupeOverlay').classList.add('active');
-                    return;
-                }
-                rememberScannedCode(decodedText);
-                showResult(decodedText);
+                handleDecodedText(decodedText);
             })
             .catch(err => {
                 alert("Could not extract QR code from image. Please try another image.");
@@ -302,9 +339,12 @@ function decodeQRFromFile(input) {
 
 // Initialize camera scanner on load
 window.onload = function() {
+    updateDupePrefNote();
     startCameraScanner();
 };
 </script>
+
+<?php include 'bottom_nav.php'; ?>
 
 </body>
 </html>

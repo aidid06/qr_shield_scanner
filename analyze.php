@@ -1,6 +1,6 @@
 <?php
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
 
 session_start();
 require_once 'db.php';
@@ -230,6 +230,8 @@ if (scanStatus === "Safe" && scannedUrl) {
     document.getElementById('confirmOverlay').classList.add('active');
 }
 </script>
+
+<?php include 'bottom_nav.php'; ?>
 
 </body>
 </html>
