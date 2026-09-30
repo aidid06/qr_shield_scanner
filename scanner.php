@@ -303,6 +303,13 @@ async function startScan() {
             throw new Error(submitData.error || 'Could not submit the link for scanning.');
         }
 
+        if (submitData.status === 'completed') {
+            // VirusTotal already had a recent report for this exact link -
+            // no need to wait for a fresh analysis at all.
+            window.location.href = 'result.php?id=' + encodeURIComponent(submitData.history_id);
+            return;
+        }
+
         pollForResult(submitData.analysis_id, 0);
     } catch (err) {
         overlay.classList.remove('active');
