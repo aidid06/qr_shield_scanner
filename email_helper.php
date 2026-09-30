@@ -62,3 +62,17 @@ function send_verification_email($username, $email, $verify_token, $host) {
 
     return send_email_via_resend($email, $subject, $body);
 }
+
+/**
+ * Builds and sends a password reset email for the given username/email/token.
+ * Returns true if Resend accepted the email, false otherwise.
+ */
+function send_reset_email($username, $email, $reset_token, $host) {
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $reset_link = "$scheme://$host/reset_password.php?token=" . $reset_token;
+
+    $subject = "Reset your QR Shield Scanner password";
+    $body = "Hi $username,\n\nWe received a request to reset your password. Click the link below to choose a new one. This link expires in 1 hour.\n$reset_link\n\nIf you didn't request this, you can safely ignore this email - your password won't be changed.";
+
+    return send_email_via_resend($email, $subject, $body);
+}
