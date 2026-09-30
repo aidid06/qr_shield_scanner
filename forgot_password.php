@@ -62,6 +62,11 @@ if (isset($conn)) { $conn->close(); }
         .link { text-align: center; margin-top: 20px; font-size: 14px; color: var(--text-muted); }
         .link a { color: var(--primary); text-decoration: none; font-weight: 600; }
         .link a:hover { text-decoration: underline; }
+        .divider { display: flex; align-items: center; text-align: center; color: var(--text-muted); font-size: 0.8rem; margin: 24px 0 18px 0; }
+        .divider::before, .divider::after { content: ""; flex: 1; border-bottom: 1px solid var(--border-color); }
+        .divider span { padding: 0 12px; }
+        .btn-secondary-action { width: 100%; padding: 12px; background: transparent; color: var(--primary); border: 1px solid var(--primary); border-radius: 8px; font-weight: 600; font-size: 0.95rem; cursor: pointer; }
+        .btn-secondary-action:hover { background: rgba(37, 99, 235, 0.06); }
     </style>
 </head>
 <body>
@@ -91,6 +96,19 @@ if (isset($conn)) { $conn->close(); }
             <input type="email" id="email" name="email" required>
         </div>
         <button type="submit">Send Reset Link</button>
+    </form>
+
+    <div class="divider">
+        <span>or</span>
+    </div>
+
+    <form action="resend_verification.php" method="GET">
+        <p class="hint" style="margin-top: 0;">Haven't verified your account yet?</p>
+        <div class="form-group">
+            <label for="resend_email">Your Registered Email</label>
+            <input type="email" id="resend_email" name="email" required>
+        </div>
+        <button type="submit" class="btn-secondary-action">Resend Verification Email</button>
     </form>
     <?php endif; ?>
 
