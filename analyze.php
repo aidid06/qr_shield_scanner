@@ -11,6 +11,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$user_id = $_SESSION['user_id'];
 $scan_status = "Error";
 $malicious_count = 0;
 $total_engines = 0;
@@ -18,7 +19,6 @@ $scanned_url = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['url'])) {
     $scanned_url = trim($_POST['url']);
-    $user_id = $_SESSION['user_id'];
 
     // 1. Submit URL to VirusTotal API v3 for analysis
     $vt_url = 'https://www.virustotal.com/api/v3/urls';
@@ -46,24 +46,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['url'])) {
         if ($analysis_id) {
             $report_url = 'https://www.virustotal.com/api/v3/analyses/' . $analysis_id;
             
-            // Sleep 3 seconds to give VT backend time to aggregate engine scores
-            sleep(3);
+            $max_attempts = 5;
+            $delay_seconds = 3;
+            $report_data = null;
+            $status = "";
 
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $report_url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                'accept: application/json',
-                'x-apikey: ' . $api_key
-            ]);
+            // Poll VirusTotal until analysis is completed or max attempts reached
+            for ($attempt = 1; $attempt <= $max_attempts; $attempt++) {
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $report_url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'accept: application/json',
+                    'x-apikey: ' . $api_key
+                ]);
 
-            $report_response = curl_exec($ch);
-            curl_close($ch);
+                $report_response = curl_exec($ch);
+                $report_http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
 
-            $report_data = json_decode($report_response, true);
-            $stats = $report_data['data']['attributes']['stats'] ?? null;
+                if ($report_http_code == 200) {
+                    $report_data = json_decode($report_response, true);
+                    $status = $report_data['data']['attributes']['status'] ?? "";
 
-            if ($stats) {
+                    if ($status === "completed") {
+                        break;
+                    }
+                }
+
+                if ($attempt < $max_attempts) {
+                    sleep($delay_seconds);
+                }
+            }
+
+            // Only process stats if the analysis successfully completed
+            if ($status === "completed" && isset($report_data['data']['attributes']['stats'])) {
+                $stats = $report_data['data']['attributes']['stats'];
+                
                 $malicious_count = $stats['malicious'] ?? 0;
                 $suspicious_count = $stats['suspicious'] ?? 0;
                 $harmless_count = $stats['harmless'] ?? 0;
@@ -71,7 +90,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['url'])) {
                 
                 $total_engines = $malicious_count + $suspicious_count + $harmless_count + $undetected_count;
 
-                // Determine overall scan status category
                 if ($malicious_count > 0) {
                     $scan_status = "Malicious";
                 } elseif ($suspicious_count > 0) {
@@ -79,18 +97,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['url'])) {
                 } else {
                     $scan_status = "Safe";
                 }
+            } else {
+                $scan_status = "Still analyzing";
+            }
 
-                // 2. Save Scan History into SQLite Database using SQLite3 bindValue syntax
-                $hist_stmt = $conn->prepare("INSERT INTO scan_history (user_id, scanned_url, scan_status, malicious_count, total_engines) VALUES (?, ?, ?, ?, ?)");
-                
-                if ($hist_stmt) {
-                    $hist_stmt->bindValue(1, $user_id, SQLITE3_INTEGER);
-                    $hist_stmt->bindValue(2, $scanned_url, SQLITE3_TEXT);
-                    $hist_stmt->bindValue(3, $scan_status, SQLITE3_TEXT);
-                    $hist_stmt->bindValue(4, $malicious_count, SQLITE3_INTEGER);
-                    $hist_stmt->bindValue(5, $total_engines, SQLITE3_INTEGER);
-                    $hist_stmt->execute();
-                }
+            // 2. Save Scan History into SQLite Database
+            $hist_stmt = $conn->prepare("INSERT INTO scan_history (user_id, scanned_url, scan_status, malicious_count, total_engines) VALUES (?, ?, ?, ?, ?)");
+            
+            if ($hist_stmt) {
+                $hist_stmt->bindValue(1, $user_id, SQLITE3_INTEGER);
+                $hist_stmt->bindValue(2, $scanned_url, SQLITE3_TEXT);
+                $hist_stmt->bindValue(3, $scan_status, SQLITE3_TEXT);
+                $hist_stmt->bindValue(4, $malicious_count, SQLITE3_INTEGER);
+                $hist_stmt->bindValue(5, $total_engines, SQLITE3_INTEGER);
+                $hist_stmt->execute();
             }
         }
     } else {
@@ -121,7 +141,7 @@ $conn->close();
         .Safe { background-color: #10b981; }
         .Suspicious { background-color: #f59e0b; color: #fff; }
         .Malicious { background-color: #ef4444; }
-        .Error { background-color: #64748b; }
+        .Error, .Still.analyzing { background-color: #64748b; }
         .btn-group { display: flex; gap: 15px; margin-top: 30px; }
         .btn-back { display: inline-block; padding: 12px 20px; background: var(--primary); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 0.95rem; text-align: center; flex: 1; transition: background 0.2s; }
         .btn-back:hover { background: var(--primary-hover); }
@@ -129,7 +149,6 @@ $conn->close();
         .btn-secondary:hover { background: #475569; }
         .url-box { word-break: break-all; color: var(--primary); font-weight: 500; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 5px; margin-bottom: 20px; }
 
-        /* Auto-open notice for Safe links */
         .auto-open-notice { margin-top: 15px; font-size: 0.85rem; color: var(--text-muted); }
 
         /* Confirmation dialog for Suspicious/Malicious links */
@@ -154,7 +173,6 @@ $conn->close();
         }
         .confirm-box h3 { margin-top: 0; color: #ef4444; }
         .confirm-box p { color: var(--text-main); font-size: 0.9rem; }
-        .confirm-box .url-box { text-align: left; font-size: 0.85rem; }
         .confirm-btn-group { display: flex; gap: 12px; margin-top: 20px; }
         .confirm-btn-group button, .confirm-btn-group a { flex: 1; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; border: none; cursor: pointer; text-decoration: none; text-align: center; }
         .btn-cancel { background: #e2e8f0; color: var(--text-main); }
@@ -180,13 +198,15 @@ $conn->close();
     <div class="url-box"><?php echo htmlspecialchars($scanned_url); ?></div>
     
     <p><strong>Threat Status:</strong><br>
-        <span class="badge <?php echo $scan_status; ?>"><?php echo $scan_status; ?></span>
+        <span class="badge <?php echo str_replace(' ', '', $scan_status); ?>"><?php echo $scan_status; ?></span>
     </p>
 
     <?php if ($scan_status === "Safe"): ?>
         <p class="auto-open-notice" id="autoOpenNotice">This link looks safe. Opening it automatically in a new tab in <span id="countdown">3</span>...</p>
     <?php elseif ($scan_status === "Suspicious" || $scan_status === "Malicious"): ?>
         <p class="auto-open-notice" style="color: #ef4444; font-weight: 600;">This link was NOT opened automatically because it may be unsafe.</p>
+    <?php elseif ($scan_status === "Still analyzing"): ?>
+        <p class="auto-open-notice" style="color: #64748b; font-weight: 600;">VirusTotal took too long to analyze this link. Manual check recommended.</p>
     <?php endif; ?>
 
     <div class="btn-group">
