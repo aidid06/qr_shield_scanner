@@ -64,9 +64,7 @@ if (isset($conn)) { $conn->close(); }
         .link { text-align: center; margin-top: 20px; font-size: 14px; color: var(--text-muted); }
         .link a { color: var(--primary); text-decoration: none; font-weight: 600; }
         .link a:hover { text-decoration: underline; }
-        .resend-line { font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 16px 0; }
-        .resend-line a { color: var(--primary); font-weight: 600; text-decoration: underline; }
-        .link-btn { background: none; border: none; padding: 0; margin: 0; font: inherit; color: var(--primary); font-weight: 600; text-decoration: underline; cursor: pointer; }
+        .link-btn { display: inline; width: auto; background: none; border: none; padding: 0; margin: 0; font: inherit; font-size: inherit; color: var(--primary); font-weight: 600; text-decoration: underline; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -102,30 +100,14 @@ if (isset($conn)) { $conn->close(); }
             <label for="email">Your Registered Email</label>
             <input type="email" id="email" name="email" required>
         </div>
-        <p class="resend-line">Haven't verified your account yet? <a href="#" onclick="return goResendVerification();">Resend it</a>.</p>
         <button type="submit">Send Reset Link</button>
     </form>
-    <?php else: ?>
-        <p class="resend-line">Haven't verified your account yet? <a href="resend_verification.php">Resend it</a>.</p>
     <?php endif; ?>
 
     <div class="link">
         Remember your password? <a href="index.php">Login here</a>
     </div>
 </div>
-
-<script>
-function goResendVerification() {
-    const emailField = document.getElementById('email');
-    const email = emailField ? emailField.value.trim() : '';
-    if (email) {
-        window.location.href = 'resend_verification.php?email=' + encodeURIComponent(email);
-    } else {
-        window.location.href = 'resend_verification.php';
-    }
-    return false;
-}
-</script>
 
 </body>
 </html>
