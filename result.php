@@ -29,6 +29,21 @@ $scan_status = $row['scan_status'];
 $malicious_count = (int)$row['malicious_count'];
 $total_engines = (int)$row['total_engines'];
 $scanned_url = $row['scanned_url'];
+
+// Plain-language risk description shown to the user, instead of raw engine counts
+function get_risk_description($status) {
+    switch ($status) {
+        case 'Safe':
+            return "No known threats were found. This link appears safe to open.";
+        case 'Suspicious':
+            return "This link shows signs of being unsafe. It may lead to a phishing page, a scam, or unwanted software.";
+        case 'Malicious':
+            return "This link is confirmed harmful. Opening it could install malware, steal your passwords or personal data, or redirect you to a fake login page.";
+        default:
+            return "We couldn't determine the safety of this link.";
+    }
+}
+$risk_description = get_risk_description($scan_status);
 ?>
 
 <!DOCTYPE html>
@@ -96,9 +111,7 @@ $scanned_url = $row['scanned_url'];
         <span class="badge <?php echo htmlspecialchars($scan_status); ?>"><?php echo htmlspecialchars($scan_status); ?></span>
     </p>
 
-    <?php if ($total_engines > 0): ?>
-        <p class="engine-line"><?php echo $malicious_count; ?> of <?php echo $total_engines; ?> security engines flagged this link.</p>
-    <?php endif; ?>
+    <p class="engine-line"><?php echo htmlspecialchars($risk_description); ?></p>
 
     <?php if ($scan_status === "Safe"): ?>
         <p class="auto-open-notice" id="autoOpenNotice">This link looks safe. Opening it automatically in a new tab in <span id="countdown">3</span>...</p>
@@ -117,9 +130,8 @@ $scanned_url = $row['scanned_url'];
 <div class="confirm-overlay" id="confirmOverlay">
     <div class="confirm-box">
         <h3>⚠️ Warning: Risky Link Detected</h3>
-        <p>Our scan flagged this URL as <strong><?php echo htmlspecialchars($scan_status); ?></strong>
-            (<?php echo $malicious_count; ?> out of <?php echo $total_engines; ?> engines flagged it).
-            Opening it could expose you to phishing, malware, or other threats.</p>
+        <p>Our scan flagged this URL as <strong><?php echo htmlspecialchars($scan_status); ?></strong>.
+            <?php echo htmlspecialchars($risk_description); ?></p>
         <div class="url-box"><?php echo htmlspecialchars($scanned_url); ?></div>
         <p>Are you sure you want to continue?</p>
         <div class="confirm-btn-group">
@@ -133,7 +145,7 @@ $scanned_url = $row['scanned_url'];
 <div class="confirm-overlay" id="secondConfirmOverlay">
     <div class="confirm-box second-confirm-box">
         <h3>⚠️ Are you absolutely sure?</h3>
-        <p class="warn">This link was flagged as MALICIOUS by <?php echo $malicious_count; ?> security engines. Opening it could compromise your device or steal your data.</p>
+        <p class="warn">This link is confirmed MALICIOUS. <?php echo htmlspecialchars($risk_description); ?></p>
         <p>This is your final confirmation. We strongly recommend clicking Cancel.</p>
         <div class="confirm-btn-group">
             <button class="btn-cancel" onclick="document.getElementById('secondConfirmOverlay').classList.remove('active');">Cancel</button>
