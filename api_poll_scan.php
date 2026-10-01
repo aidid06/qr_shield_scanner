@@ -23,11 +23,27 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $analysis_id = isset($_GET['id']) ? trim($_GET['id']) : '';
-if (empty($analysis_id) || !isset($_SESSION['pending_scans'][$analysis_id])) {
+if (empty($analysis_id)) {
     http_response_code(400);
     echo json_encode(['error' => 'Unknown or expired analysis ID']);
     exit();
 }
+
+require_once 'db.php';
+$lookup_stmt = $conn->prepare("SELECT user_id, scanned_url FROM pending_scans WHERE analysis_id = ?");
+$lookup_stmt->bindValue(1, $analysis_id, SQLITE3_TEXT);
+$lookup_res = $lookup_stmt->execute();
+$pending = $lookup_res ? $lookup_res->fetchArray(SQLITE3_ASSOC) : null;
+$lookup_stmt->close();
+
+if (!$pending || (int)$pending['user_id'] !== (int)$_SESSION['user_id']) {
+    $conn->close();
+    http_response_code(400);
+    echo json_encode(['error' => 'Unknown or expired analysis ID']);
+    exit();
+}
+$scanned_url_for_this_scan = $pending['scanned_url'];
+// Keep $conn open - we'll need it again below if the scan has finished.
 
 $api_key = getenv('VT_API_KEY');
 $ch = curl_init();
@@ -41,7 +57,6 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, [
 ]);
 $response = curl_exec($ch);
 $curl_error = curl_error($ch);
-curl_close($ch);
 
 if ($curl_error) {
     // A single failed poll isn't fatal - just tell the browser to try again
@@ -75,10 +90,10 @@ if ($malicious > 0) {
     $scan_status = 'Safe';
 }
 
-$scanned_url = $_SESSION['pending_scans'][$analysis_id];
+$scanned_url = $scanned_url_for_this_scan;
 
 // Save to history now that we have a real, finished result.
-require_once 'db.php';
+// $conn is already open from the pending_scans lookup earlier in this request.
 $stmt = $conn->prepare("INSERT INTO scan_history (user_id, scanned_url, scan_status, malicious_count, total_engines) VALUES (?, ?, ?, ?, ?)");
 $history_id = null;
 if ($stmt) {
@@ -91,9 +106,14 @@ if ($stmt) {
     $history_id = $conn->insert_id();
     $stmt->close();
 }
-$conn->close();
 
-unset($_SESSION['pending_scans'][$analysis_id]);
+$cleanup_stmt = $conn->prepare("DELETE FROM pending_scans WHERE analysis_id = ?");
+if ($cleanup_stmt) {
+    $cleanup_stmt->bindValue(1, $analysis_id, SQLITE3_TEXT);
+    $cleanup_stmt->execute();
+    $cleanup_stmt->close();
+}
+$conn->close();
 
 echo json_encode([
     'status' => 'completed',

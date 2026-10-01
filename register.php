@@ -1,6 +1,6 @@
 <?php
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
 
 require_once 'db.php';
 require_once 'email_helper.php';
@@ -18,17 +18,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($password !== $confirm_password) {
             $error = "Passwords do not match!";
         } else {
-            // Semakan kriteria password: Min 8 aksara, Huruf Besar, Huruf Kecil, Nombor, Simbol
             $length_ok = strlen($password) >= 8;
             $upper_ok  = preg_match('/[A-Z]/', $password);
             $lower_ok  = preg_match('/[a-z]/', $password);
             $number_ok = preg_match('/[0-9]/', $password);
-            $symbol_ok = preg_match('/[\W_]/', $password); // Simbol khas
+            $symbol_ok = preg_match('/[\W_]/', $password);
 
             if (!$length_ok || !$upper_ok || !$lower_ok || !$number_ok || !$symbol_ok) {
                 $error = "User must enter at least 8 characters include Uppercase, Lowercase, Number & Symbol.";
             } else {
-                // Check if email already exists using SQLite syntax
                 $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
                 if ($stmt) {
                     $stmt->bindValue(1, $email, SQLITE3_TEXT);
@@ -41,11 +39,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     } else {
                         $stmt->close();
 
-                        // Hash password securely
                         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
                         $verify_token = bin2hex(random_bytes(32));
 
-                        // Insert new user into database using SQLite syntax
                         $insert_stmt = $conn->prepare("INSERT INTO users (username, email, password, verified, verify_token) VALUES (?, ?, ?, 0, ?)");
                         if ($insert_stmt) {
                             $insert_stmt->bindValue(1, $username, SQLITE3_TEXT);
@@ -56,7 +52,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             if ($insert_stmt->execute()) {
                                 $host = $_SERVER['HTTP_HOST'];
                                 $sent = send_verification_email($username, $email, $verify_token, $host);
-
                                 $resend_link = "resend_verification.php?email=" . urlencode($email);
 
                                 if ($sent) {
@@ -105,7 +100,6 @@ if (isset($conn)) {
 <body>
 
 <div class="register-container">
-    <!-- App Logo -->
     <div class="login-logo">
         <div style="text-align: center; margin-bottom: 25px;">
         <img src="image/QR SHIELD TEXT.png" alt="QR Shield Logo" style="height: 200px; margin-bottom: 8px;">
@@ -113,9 +107,9 @@ if (isset($conn)) {
 </div>
 
     <h2>Create Account</h2>
-    
+
     <?php if (!empty($error)): ?>
-        <div class="error"><?php echo $error; ?></div>
+        <div class="error"><?php echo htmlspecialchars($error); ?></div>
     <?php endif; ?>
 
     <?php if (!empty($success)): ?>
@@ -152,7 +146,7 @@ if (isset($conn)) {
         </div>
         <button type="submit">Register</button>
     </form>
-    
+
     <div class="link">
         Already have an account? <a href="index.php">Login here</a>
     </div>

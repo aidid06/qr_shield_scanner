@@ -25,6 +25,8 @@ function send_email_via_resend($to_email, $subject, $body_text) {
     $ch = curl_init("https://api.resend.com/emails");
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 12);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "Authorization: Bearer " . $api_key,
@@ -34,7 +36,8 @@ function send_email_via_resend($to_email, $subject, $body_text) {
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curl_error = curl_error($ch);
-    curl_close($ch);
+    // No curl_close() here - deprecated as of PHP 8.5, and unnecessary since
+    // the handle is freed automatically once $ch goes out of scope.
 
     if ($curl_error) {
         error_log("Resend cURL error: " . $curl_error);

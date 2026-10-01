@@ -55,7 +55,6 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, [
 ]);
 $lookup_response = curl_exec($ch);
 $lookup_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-curl_close($ch);
 
 if ($lookup_code == 200) {
     $lookup_data = json_decode($lookup_response, true);
@@ -124,7 +123,6 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, [
 $response = curl_exec($ch);
 $curl_error = curl_error($ch);
 $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-curl_close($ch);
 
 if ($curl_error) {
     error_log("VirusTotal submit curl error: " . $curl_error);
@@ -148,11 +146,18 @@ if (!$analysis_id) {
     exit();
 }
 
-// Stash the scanned URL against this analysis ID in the session so poll_scan.php
-// and save_scan.php can trust it later without the client resending it.
-if (!isset($_SESSION['pending_scans'])) {
-    $_SESSION['pending_scans'] = [];
+// Stash the scanned URL against this analysis ID in the database (not the
+// session) so api_poll_scan.php can trust it later without depending on
+// session cookies surviving between the submit and poll requests.
+require_once 'db.php';
+$pending_stmt = $conn->prepare("INSERT OR REPLACE INTO pending_scans (analysis_id, user_id, scanned_url) VALUES (?, ?, ?)");
+if ($pending_stmt) {
+    $pending_stmt->bindValue(1, $analysis_id, SQLITE3_TEXT);
+    $pending_stmt->bindValue(2, $_SESSION['user_id'], SQLITE3_INTEGER);
+    $pending_stmt->bindValue(3, $scanned_url, SQLITE3_TEXT);
+    $pending_stmt->execute();
+    $pending_stmt->close();
 }
-$_SESSION['pending_scans'][$analysis_id] = $scanned_url;
+$conn->close();
 
 echo json_encode(['status' => 'pending', 'analysis_id' => $analysis_id]);
