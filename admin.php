@@ -74,6 +74,7 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
     <h1>QR Shield Scanner - Admin Panel</h1>
     <div class="nav-links">
         <a href="dashboard.php">User Dashboard</a>
+        <a href="report.php">Monthly Report</a>
         <a href="logout.php" style="color: #ef4444;">Logout</a>
     </div>
 </header>
@@ -125,7 +126,6 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
                 <th>URL</th>
                 <th>Status</th>
                 <th>Time</th>
-                <th>Receipt</th>
             </tr>
         </thead>
         <tbody>
@@ -135,7 +135,6 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
                     <td class="url-cell"><?php echo htmlspecialchars($log['scanned_url']); ?></td>
                     <td><span class="badge <?php echo htmlspecialchars($log['scan_status']); ?>"><?php echo htmlspecialchars($log['scan_status']); ?></span></td>
                     <td><?php echo $log['scanned_at']; ?></td>
-                    <td><a class="print-link" target="_blank" href="receipt.php?ids=<?php echo (int)$log['id']; ?>">Print</a></td>
                 </tr>
             <?php endwhile; ?>
         </tbody>

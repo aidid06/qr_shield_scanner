@@ -66,6 +66,7 @@ $has_rows = count($rows) > 0;
     <div class="nav-links">
         <a href="dashboard.php">Dashboard</a>
         <a href="scanner.php">Scan QR</a>
+        <?php if (!$is_guest): ?><a href="report.php">Monthly Report</a><?php endif; ?>
         <a href="logout.php" style="color: #ef4444;">Logout</a>
     </div>
 </header>
@@ -81,7 +82,6 @@ $has_rows = count($rows) > 0;
                     <th>Date &amp; Time</th>
                     <th>Scanned URL / Content</th>
                     <th>Status</th>
-                    <th>Receipt</th>
                 </tr>
             </thead>
             <tbody>
@@ -93,13 +93,6 @@ $has_rows = count($rows) > 0;
                             <span class="badge <?php echo htmlspecialchars($row['scan_status']); ?>">
                                 <?php echo htmlspecialchars($row['scan_status']); ?>
                             </span>
-                        </td>
-                        <td>
-                            <?php if ($is_guest): ?>
-                                <span title="Register to print receipts">-</span>
-                            <?php else: ?>
-                                <a class="print-link" target="_blank" href="receipt.php?ids=<?php echo (int)$row['id']; ?>">Print</a>
-                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>
