@@ -2,8 +2,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
-session_start();
-require_once 'db.php';
+require_once 'session_boot.php';
 
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {

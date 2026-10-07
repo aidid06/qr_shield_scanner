@@ -2,7 +2,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
-session_start();
+require_once 'session_boot.php';
 
 // Redirect to login if not logged in
 if (!isset($_SESSION['user_id'])) {
