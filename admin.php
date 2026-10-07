@@ -1,7 +1,6 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
-
 require_once 'session_boot.php';
 
 // Check if user is logged in AND is an admin
@@ -12,7 +11,6 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
-// Check admin status using SQLite prepared statement
 $check_admin = $conn->prepare("SELECT role FROM users WHERE id = ?");
 $check_admin->bindValue(1, $user_id, SQLITE3_INTEGER);
 $res = $check_admin->execute();
@@ -23,20 +21,18 @@ if (!$user_data || $user_data['role'] !== 'admin') {
     exit();
 }
 
-// Fetch all registered users
-$users_result = $conn->query("SELECT id, username, email, role, created_at FROM users ORDER BY created_at DESC");
+// Registered users only (temporary guest accounts are hidden)
+$users_result = $conn->query("SELECT id, username, email, role, created_at FROM users WHERE role != 'guest' ORDER BY created_at DESC");
 
-// Fetch global scan metrics & logs
 $total_scans_res = $conn->query("SELECT COUNT(*) as count FROM scan_history");
 $total_scans = $total_scans_res ? $total_scans_res->fetch_assoc()['count'] : 0;
 
 $malicious_scans_res = $conn->query("SELECT COUNT(*) as count FROM scan_history WHERE scan_status = 'Malicious'");
 $malicious_scans = $malicious_scans_res ? $malicious_scans_res->fetch_assoc()['count'] : 0;
 
-// Fetch recent scans with user mapping
-$all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_history JOIN users ON scan_history.user_id = users.id ORDER BY scanned_at DESC LIMIT 10");
+// Recent scans with user mapping (50 instead of 10)
+$all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_history JOIN users ON scan_history.user_id = users.id ORDER BY scanned_at DESC LIMIT 50");
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -68,6 +64,8 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
         .Suspicious { background-color: #f59e0b; color: #fff; }
         .Malicious { background-color: #ef4444; }
         .url-cell { word-break: break-all; max-width: 300px; color: var(--primary); }
+        .print-link { color: var(--primary); font-weight: 600; text-decoration: none; }
+        .print-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -84,7 +82,6 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
     <h2>System Administrator Control Panel</h2>
     <p>Welcome, Administrator. Here is an overview of platform activity and user management controls.</p>
 
-    <!-- System Statistics Cards -->
     <div class="stats-grid">
         <div class="stat-card">
             <h4>Total Global Scans</h4>
@@ -96,7 +93,6 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
         </div>
     </div>
 
-    <!-- Registered Users Management Table -->
     <h3>Registered Users</h3>
     <table>
         <thead>
@@ -121,7 +117,6 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
         </tbody>
     </table>
 
-    <!-- Recent Global Scan Logs -->
     <h3>Recent Platform Scans (Live Stream)</h3>
     <table>
         <thead>
@@ -130,6 +125,7 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
                 <th>URL</th>
                 <th>Status</th>
                 <th>Time</th>
+                <th>Receipt</th>
             </tr>
         </thead>
         <tbody>
@@ -137,8 +133,9 @@ $all_history = $conn->query("SELECT scan_history.*, users.username FROM scan_his
                 <tr>
                     <td><?php echo htmlspecialchars($log['username']); ?></td>
                     <td class="url-cell"><?php echo htmlspecialchars($log['scanned_url']); ?></td>
-                    <td><span class="badge <?php echo $log['scan_status']; ?>"><?php echo $log['scan_status']; ?></span></td>
+                    <td><span class="badge <?php echo htmlspecialchars($log['scan_status']); ?>"><?php echo htmlspecialchars($log['scan_status']); ?></span></td>
                     <td><?php echo $log['scanned_at']; ?></td>
+                    <td><a class="print-link" target="_blank" href="receipt.php?ids=<?php echo (int)$log['id']; ?>">Print</a></td>
                 </tr>
             <?php endwhile; ?>
         </tbody>

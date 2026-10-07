@@ -1,7 +1,6 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
-
 require_once 'session_boot.php';
 
 // Check if user is logged in
@@ -11,16 +10,14 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
+$is_guest = ($_SESSION['role'] ?? '') === 'guest';
 
-// Fetch scan history for the logged-in user using SQLite syntax
-$stmt = $conn->prepare("SELECT scanned_url, scan_status, scanned_at FROM scan_history WHERE user_id = ? ORDER BY scanned_at DESC");
-$has_rows = false;
+// Fetch scan history for the logged-in user (id is needed for the receipt link)
+$stmt = $conn->prepare("SELECT id, scanned_url, scan_status, scanned_at FROM scan_history WHERE user_id = ? ORDER BY scanned_at DESC");
 $rows = [];
-
 if ($stmt) {
     $stmt->bindValue(1, $user_id, SQLITE3_INTEGER);
     $result = $stmt->execute();
-    
     if ($result) {
         while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
             $rows[] = $row;
@@ -30,7 +27,6 @@ if ($stmt) {
 }
 $has_rows = count($rows) > 0;
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -59,6 +55,8 @@ $has_rows = count($rows) > 0;
         .Malicious { background-color: #ef4444; }
         .url-cell { max-width: 350px; word-break: break-all; color: var(--primary); }
         .no-data { text-align: center; color: var(--text-muted); padding: 30px; }
+        .print-link { color: var(--primary); font-weight: 600; text-decoration: none; }
+        .print-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -80,9 +78,10 @@ $has_rows = count($rows) > 0;
         <table>
             <thead>
                 <tr>
-                    <th>Date & Time</th>
+                    <th>Date &amp; Time</th>
                     <th>Scanned URL / Content</th>
                     <th>Status</th>
+                    <th>Receipt</th>
                 </tr>
             </thead>
             <tbody>
@@ -91,9 +90,16 @@ $has_rows = count($rows) > 0;
                         <td><?php echo $row['scanned_at']; ?></td>
                         <td class="url-cell"><?php echo htmlspecialchars($row['scanned_url']); ?></td>
                         <td>
-                            <span class="badge <?php echo $row['scan_status']; ?>">
-                                <?php echo $row['scan_status']; ?>
+                            <span class="badge <?php echo htmlspecialchars($row['scan_status']); ?>">
+                                <?php echo htmlspecialchars($row['scan_status']); ?>
                             </span>
+                        </td>
+                        <td>
+                            <?php if ($is_guest): ?>
+                                <span title="Register to print receipts">-</span>
+                            <?php else: ?>
+                                <a class="print-link" target="_blank" href="receipt.php?ids=<?php echo (int)$row['id']; ?>">Print</a>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -102,14 +108,12 @@ $has_rows = count($rows) > 0;
     <?php else: ?>
         <p class="no-data">You haven't scanned any QR codes yet. <a href="scanner.php" style="color: var(--primary); text-decoration: none; font-weight: 600;">Start scanning now!</a></p>
     <?php endif; ?>
-
 </div>
 
 <?php include 'bottom_nav.php'; ?>
 
 </body>
 </html>
-
 <?php
 if (isset($conn)) {
     $conn->close();
